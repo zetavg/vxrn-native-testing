@@ -43,7 +43,7 @@ runs:
 
     - name: Clean Build
       shell: bash
-      run: yarn clean:build
+      run: ${{ inputs.workspace-focus && format('yarn workspaces foreach -Rpt --from "{0}" run clean:build', inputs.workspace-focus) || 'yarn clean:build'}}
 
     - name: Build
       shell: bash
