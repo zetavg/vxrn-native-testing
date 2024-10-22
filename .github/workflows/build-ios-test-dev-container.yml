@@ -97,20 +97,12 @@ jobs:
         id: caculate-build-hash
         env:
           # We need to list all files that will affect native code in hashFiles.
-          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock;tests/test/ios/OneTestApp.xcodeproj/project.pbxproj') }}
+          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'tests/test/ios/OneTestApp.xcodeproj/project.pbxproj') }}
         run: |
-          ls ios/Podfile.lock ;:
-          ls ios/OneTestApp.xcodeproj/project.pbxproj ;:
-          echo "hash: ${{ hashFiles('tests/test/ios/Podfile.lock;tests/test/ios/
-          OneTestApp.xcodeproj/project.pbxproj') }}"
-          echo "hash 1: ${{ hashFiles('tests/test/ios/Podfile.lock') }}"
-          echo "hash 2: ${{ hashFiles('tests/test/ios/
-          OneTestApp.xcodeproj/project.pbxproj') }}"
-
-          echo "hash A 1: ${{ hashFiles('ios/Podfile.lock') }}"
-          echo "hash A 2: ${{ hashFiles('ios/
-          OneTestApp.xcodeproj/project.pbxproj') }}"
-
+          if [ -z "$BUILD_HASH" ]; then
+            echo '[ERROR] Failed to calculate build hash.'
+            exit 1
+          fi
           echo "Build hash: $BUILD_HASH"
           echo "build_hash=$BUILD_HASH" >> $GITHUB_OUTPUT
 
