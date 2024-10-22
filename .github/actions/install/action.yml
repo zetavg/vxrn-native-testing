@@ -39,7 +39,7 @@ runs:
 
     - name: Install Dependencies
       shell: bash
-      run: ${{ inputs.workspace-focus && format('yarn workspaces focus {0}', inputs.workspace-focus) || 'yarn install'}}
+      run: ${{ inputs.workspace-focus && format('yarn workspaces focus vxrn-monorepo {0}', inputs.workspace-focus) || 'yarn install'}}
 
     - name: Clean Build
       shell: bash
