@@ -1,0 +1,228 @@
+name: Build iOS Test Development Container App
+on:
+  workflow_call:
+    outputs:
+      build-hash:
+        description: "A hash to identify the build."
+        value: ${{ jobs.build-ios.outputs.build-hash }}
+      # version:
+      #   description: "The version of the build."
+      #   value: ${{ jobs.build-ios.outputs.version }}
+      # build-number:
+      #   description: "The build number of the build."
+      #   value: ${{ jobs.build-ios.outputs.build-number }}
+      # archive-artifact-id:
+      #   description: "The artifact id of the Xcode archive."
+      #   value: ${{ jobs.build-ios.outputs.archive-artifact-id }}
+      # archive-artifact-url:
+      #   description: "The artifact URL of the Xcode archive."
+      #   value: ${{ jobs.build-ios.outputs.archive-artifact-url }}
+      # archive-artifact-name:
+      #   description: "The artifact name of the Xcode archive."
+      #   value: ${{ jobs.build-ios.outputs.archive-artifact-name }}
+      # ipa-artifact-id:
+      #   description: "The artifact id of the IPA."
+      #   value: ${{ jobs.build-ios.outputs.ipa-artifact-id }}
+      # ipa-artifact-url:
+      #   description: "The artifact URL of the IPA."
+      #   value: ${{ jobs.build-ios.outputs.ipa-artifact-url }}
+      # ipa-artifact-name:
+      #   description: "The artifact name of the IPA."
+      #   value: ${{ jobs.build-ios.outputs.ipa-artifact-name }}
+      # testflight-upload-succeeded:
+      #   description: "Whether the TestFlight upload succeeded."
+      #   value: ${{ jobs.build-ios.outputs.testflight-upload-succeeded }}
+      # install-url:
+      #   description: "URL to install the built app."
+      #   value: ${{ jobs.build-ios.outputs.install-url }}
+
+jobs:
+  build-ios:
+    name: Build
+    runs-on: macos-13
+    permissions:
+      contents: read
+      pull-requests: read
+    timeout-minutes: 60
+    outputs:
+      build-hash: ${{ steps.caculate-build-hash.outputs.build_hash }}
+      # build-number: ${{ steps.update-build-number.outputs.build_number }}
+      # archive-artifact-id: ${{ steps.upload-archive.outputs.artifact-id }}
+      # archive-artifact-url: ${{ steps.upload-archive.outputs.artifact-url }}
+      # archive-artifact-name: ${{ steps.get-archive-artifact-name.outputs.archive_artifact_name }}
+      # ipa-artifact-id: ${{ steps.upload-ipa.outputs.artifact-id }}
+      # ipa-artifact-url: ${{ steps.upload-ipa.outputs.artifact-url }}
+      # ipa-artifact-name: ${{ steps.get-ipa-artifact-name.outputs.ipa_artifact_name }}
+      # testflight-upload-succeeded: ${{ steps.upload-to-testflight.outputs.testflight_upload_succeeded }}
+      # install-url: ${{ steps.upload-to-appsend.outputs.install_url }}
+    defaults:
+      run:
+        working-directory: tests/test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install
+        uses: ./.github/actions/install
+
+      - name: Prebuild
+        run: |
+          node_modules/.bin/expo prebuild --platform ios --no-install # --no-install is used to skip installing dependencies, specifically `pod install` as we want to do it after the Cache Pods step
+
+      # - name: Install CocoaPods and Fastlane
+      #   run: |
+      #     gem install cocoapods:1.15.2 fastlane:2.219.0 rb_json5
+      #     echo "CocoaPods version: $(pod --version)"
+
+      - name: Cache Pods
+        uses: actions/cache@v4
+        env:
+          cache-name: test-app-pods
+        with:
+          path: tests/test/ios/Pods
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('tests/test/ios/Podfile.lock') }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('tests/test/ios/Podfile') }}-
+            ${{ runner.os }}-${{ env.cache-name }}-
+
+      - name: Pod Install
+        run: |
+          cd ios && pod install
+
+      - name: Caculate Build Hash
+        id: caculate-build-hash
+        env:
+          # We need to list all files that will affect native code in hashFiles.
+          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock,tests/test/ios/OneTestApp.xcodeproj/project.pbxproj') }}
+        run: |
+          echo "Build hash: $BUILD_HASH"
+          echo "build_hash=$BUILD_HASH" >> $GITHUB_OUTPUT
+
+
+      # - name: Prepare code signing storage Git SSH private key
+      #   env:
+      #     SSH_PRIVATE_KEY: ${{ secrets.CODE_SIGNING_STORAGE_GIT_SSH_PRIVATE_KEY }}
+      #   run: |
+      #     if [ -z "$SSH_PRIVATE_KEY" ]; then
+      #       echo '[ERROR] Environment secret "CODE_SIGNING_STORAGE_GIT_SSH_PRIVATE_KEY" is not set.'
+      #     fi
+      #     ssh-agent sh -c 'echo "$SSH_PRIVATE_KEY"' | ssh-add -
+
+      # - name: Update build number
+      #   id: update-build-number
+      #   env:
+      #     APP_STORE_CONNECT_API_KEY_ID: ${{ vars.APP_STORE_CONNECT_API_KEY_ID }}
+      #     APP_STORE_CONNECT_API_ISSUER_ID: ${{ vars.APP_STORE_CONNECT_API_ISSUER_ID }}
+      #     APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+      #     GH_ACCESS_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+      #     GITHUB_REPOSITORY_ID: ${{ github.repository_id }}
+      #     GITHUB_ENVIRONMENT: ${{ inputs.environment }}
+      #   run: |
+      #     fastlane ios update_build_number
+
+      #     current_build_number=$(jq '.ios.currentBuildNumber' app.json)
+      #     echo "Current build number: $current_build_number"
+      #     echo "build_number=$current_build_number" >> $GITHUB_OUTPUT
+
+      - name: BuildCache
+        uses: mikehardy/buildcache-action@v2
+        env:
+          cache-name: test-app-ios
+        with:
+          cache_key: ${{ runner.os }}-${{ env.cache-name }}
+      # - name: ccache
+      #   uses: hendrikmuhs/ccache-action@v1.2
+      #   env:
+      #     cache-name: rn-app-ios
+      #   with:
+      #     key: ${{ runner.os }}-${{ env.cache-name }}
+
+      # - name: Build
+      #   env:
+      #     CODE_SIGNING_STORAGE_GIT_URL: ${{ vars.CODE_SIGNING_STORAGE_GIT_URL }}
+      #     MATCH_PASSWORD: ${{ secrets.CODE_SIGNING_STORAGE_PASSPHRASE }}
+      #   run: |
+      #     if [ -z "$CODE_SIGNING_STORAGE_GIT_URL" ]; then
+      #       echo '[ERROR] Environment variable "CODE_SIGNING_STORAGE_GIT_URL" is not set.'
+      #     fi
+      #     if [ -z "$MATCH_PASSWORD" ]; then
+      #       echo '[ERROR] Environment secret "CODE_SIGNING_STORAGE_PASSPHRASE" is not set.'
+      #     fi
+
+      #     echo "export NODE_BINARY=$(command -v node)" > ios/.xcode.env.local
+
+      #     # See: https://reactnative.dev/docs/build-speed#xcode-specific-setup
+      #     export CCACHE_SLOPPINESS=clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros
+      #     export CCACHE_FILECLONE=true
+      #     export CCACHE_DEPEND=true
+      #     export CCACHE_INODECACHE=true
+
+      #     # setup_code_signing needs to be run with build for build_app to find the correct provisioning profiles from ENV
+      #     fastlane ios build setup_code_signing:true
+
+      # - name: Upload to TestFlight
+      #   id: upload-to-testflight
+      #   if: ${{ vars.SKIP_UPLOAD_TO_TESTFLIGHT != 'true' }}
+      #   continue-on-error: true
+      #   timeout-minutes: 16
+      #   env:
+      #     APP_STORE_CONNECT_API_KEY_ID: ${{ vars.APP_STORE_CONNECT_API_KEY_ID }}
+      #     APP_STORE_CONNECT_API_ISSUER_ID: ${{ vars.APP_STORE_CONNECT_API_ISSUER_ID }}
+      #     APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+      #     CHANGELOG: ${{ inputs.changelog }}
+      #   run: |
+      #     fastlane ios lane_upload_to_testflight
+      #     echo "testflight_upload_succeeded=true" >> $GITHUB_OUTPUT
+
+      # - name: Re-export IPA
+      #   run: |
+      #     find . -maxdepth 1 \( -name '*.ipa' \) -exec rm -rf {} +
+      #     fastlane ios export_ipa
+
+      # - name: Get Archive Artifact name
+      #   id: get-archive-artifact-name
+      #   run: |
+      #     archive_artifact_name="${{ inputs.environment }} Archive"
+      #     echo "Archive artifact name: $archive_artifact_name"
+      #     echo "archive_artifact_name=$archive_artifact_name" >> $GITHUB_OUTPUT
+
+      # - name: Upload Archive
+      #   id: upload-archive
+      #   uses: actions/upload-artifact@v4.3.1
+      #   with:
+      #     name: ${{ steps.get-archive-artifact-name.outputs.archive_artifact_name }}
+      #     path: |
+      #       tests/test/*.xcarchive
+
+      # - name: Get IPA Artifact name
+      #   id: get-ipa-artifact-name
+      #   run: |
+      #     ipa_artifact_name="${{ inputs.environment }} IPA"
+      #     echo "IPA artifact name: $ipa_artifact_name"
+      #     echo "ipa_artifact_name=$ipa_artifact_name" >> $GITHUB_OUTPUT
+
+      # - name: Upload IPA
+      #   id: upload-ipa
+      #   uses: actions/upload-artifact@v4.3.1
+      #   with:
+      #     name: ${{ steps.get-ipa-artifact-name.outputs.ipa_artifact_name }}
+      #     path: |
+      #       tests/test/*.ipa
+
+      # - name: Upload to AppSend
+      #   id: upload-to-appsend
+      #   if: ${{ vars.SKIP_UPLOAD != 'true' }}
+      #   continue-on-error: true
+      #   run: |
+      #     result=$(curl --insecure https://api.appsend.dev/v1/uploads/ -F file=@"$(ls *.ipa | head -n 1)") # we have encountered issues with the SSL certificate of this server on the GitHub Actions runner, therefore --insecure is used
+      #     echo $result | jq '.'
+      #     uid="$(echo $result | jq -r '.uid')"
+      #     if [ -z "$uid" ]; then
+      #       echo "[ERROR] Failed to upload to AppSend: $result"
+      #       exit 1
+      #     fi
+      #     install_url="https://appsend.dev/i/$uid"
+      #     echo "Download URL: $install_url"
+      #     echo "install_url=$install_url" >> $GITHUB_OUTPUT

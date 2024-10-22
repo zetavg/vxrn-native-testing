@@ -1,0 +1,32 @@
+name: Native Integration Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-ios-test-dev-container:
+    name: Build iOS Test Development Container App
+    uses: ./.github/workflows/build-ios-test-dev-container.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      pull-requests: read
+    # with:
+
+  test-maestro:
+    needs:
+      - build-ios-test-dev-container
+    runs-on: macos-13
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Hello World
+        env:
+          BUILD_HASH: ${{ needs.build-ios-test-dev-container.outputs.build-hash }}
+        run: echo "Build hash is $BUILD_HASH"
+
+      # - name: Install
+      #   uses: ./.github/actions/install
+
