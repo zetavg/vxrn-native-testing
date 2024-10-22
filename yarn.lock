@@ -11966,6 +11966,7 @@ __metadata:
     dotenv: "npm:^16.4.5"
     drizzle-kit: "npm:^0.24.2"
     drizzle-orm: "npm:^0.33.0"
+    expo: "npm:~51.0.28"
     one: "npm:1.1.319"
     postgres: "npm:^3.4.4"
     react: "npm:^18.3.1"
