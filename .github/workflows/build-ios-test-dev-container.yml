@@ -137,18 +137,29 @@ jobs:
       #     echo "Current build number: $current_build_number"
       #     echo "build_number=$current_build_number" >> $GITHUB_OUTPUT
 
-      - name: BuildCache
-        uses: mikehardy/buildcache-action@v2
-        env:
-          cache-name: test-app-ios
-        with:
-          cache_key: ${{ runner.os }}-${{ env.cache-name }}
+      # - name: BuildCache
+      #   uses: mikehardy/buildcache-action@v2
+      #   env:
+      #     cache-name: test-app-ios
+      #   with:
+      #     cache_key: ${{ runner.os }}-${{ env.cache-name }}
 
-      - uses: irgaly/xcode-cache@v1.8.0
+      # - uses: irgaly/xcode-cache@v1.8.0
+      #   env:
+      #     cache-name: test-app-ios
+      #   with:
+      #     key: ${{ runner.os }}-xcode-cache-${{ env.cache-name }}
+
+      - name: Restore Build Cache
+        id: restore-build-cache
+        uses: actions/cache/restore@v4
         env:
-          cache-name: test-app-ios
+          cache-name: ios-test-dev-container-build
         with:
-          key: ${{ runner.os }}-xcode-cache-${{ env.cache-name }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ steps.caculate-build-hash.outputs.build_hash }}
+          restore-keys: ${{ runner.os }}-${{ env.cache-name }}-
+          path: |
+            tests/test/build
 
       - name: Build
         run: |
@@ -174,15 +185,30 @@ jobs:
       #     path: |
       #       tests/test/build
 
-      - name: Upload Build
-        # if: steps.cache-primes-restore.outputs.cache-hit != 'true'
+      - name: Save Build Cache
+        if: always()
         uses: actions/cache/save@v4
-        env:
-          cache-name: ios-test-dev-container
         with:
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ steps.caculate-build-hash.outputs.build_hash }}
+          key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
           path: |
             tests/test/build
+
+      - name: Save Built App
+        uses: actions/cache/save@v4
+        with:
+          key: ios-test-dev-container-app-${{ steps.caculate-build-hash.outputs.build_hash }}
+          path: |
+            tests/test/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
+
+      # - name: Upload Build
+      #   # if: steps.cache-primes-restore.outputs.cache-hit != 'true'
+      #   uses: actions/cache/save@v4
+      #   env:
+      #     cache-name: ios-test-dev-container
+      #   with:
+      #     key: ${{ runner.os }}-${{ env.cache-name }}-${{ steps.caculate-build-hash.outputs.build_hash }}
+      #     path: |
+      #       tests/test/build
 
       # - name: ccache
       #   uses: hendrikmuhs/ccache-action@v1.2
