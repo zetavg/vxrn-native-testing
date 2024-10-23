@@ -27,6 +27,16 @@ jobs:
           BUILD_HASH: ${{ needs.build-ios-test-dev-container.outputs.build-hash }}
         run: echo "Build hash is $BUILD_HASH"
 
+      - name: Download Dev Container App
+        uses: actions/cache/restore@v4
+        with:
+          fail-on-cache-miss: true
+          key: ${{ needs.build-ios-test-dev-container.outputs.built-app-cache-key }}
+          path: ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
+
+      - name: Hello World 2
+        run: ls -al ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
+
       # - name: Install
       #   uses: ./.github/actions/install
 

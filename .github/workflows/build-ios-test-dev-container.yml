@@ -10,6 +10,12 @@ on:
       build-hash:
         description: "A hash to identify the build."
         value: ${{ jobs.build-ios.outputs.build-hash }}
+      built-app-cache-key:
+        description: "The cache key of the built .app."
+        value: ${{ jobs.build-ios.outputs.built-app-cache-key }}
+      built-app-path:
+        description: "The path to the built .app relative to the repository root."
+        value: ${{ jobs.build-ios.outputs.built-app-path }}
       # version:
       #   description: "The version of the build."
       #   value: ${{ jobs.build-ios.outputs.version }}
@@ -51,7 +57,8 @@ jobs:
     timeout-minutes: 60
     outputs:
       build-hash: ${{ steps.caculate-build-hash.outputs.build_hash }}
-      built-app-cache-key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
+      built-app-cache-key: ${{ steps.check-previous-build.outputs.cache-primary-key || steps.pre-check-previous-build.outputs.cache-primary-key }}
+      built-app-path: ${{ env.test_app_path }}/build/Build/Products/${{ env.built_product_path }}
       # build-number: ${{ steps.update-build-number.outputs.build_number }}
       # archive-artifact-id: ${{ steps.upload-archive.outputs.artifact-id }}
       # archive-artifact-url: ${{ steps.upload-archive.outputs.artifact-url }}
