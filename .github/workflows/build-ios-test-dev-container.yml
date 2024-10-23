@@ -1,6 +1,9 @@
 name: Build iOS Test Development Container App
 env:
   test_app_path: tests/test
+  # Used for cache keys, must be unique among all workflows
+  app_identifier: ios-test-dev-container-app
+  built_product_path: Debug-iphonesimulator/OneTestApp.app
 on:
   workflow_call:
     outputs:
@@ -89,7 +92,7 @@ jobs:
         uses: actions/cache/restore@v4
         id: check-pre-build-hash
         with:
-          key: ios-test-dev-container-app-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
+          key: ${{ env.app_identifier }}-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
           path: |
             ${{ env.test_app_path }}/build-hash.txt
 
@@ -109,10 +112,10 @@ jobs:
         uses: actions/cache/restore@v4
         id: pre-check-previous-build
         with:
-          key: ios-test-dev-container-app-${{ steps.read-build-hash.outputs.build_hash }}
+          key: ${{ env.app_identifier }}-${{ steps.read-build-hash.outputs.build_hash }}
           lookup-only: true
           path: |
-            ${{ env.test_app_path }}/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
+            ${{ env.test_app_path }}/build/Build/Products/${{ env.built_product_path }}
 
       - name: Install
         uses: ./.github/actions/install
@@ -134,7 +137,7 @@ jobs:
         uses: actions/cache@v4
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         env:
-          cache-name: test-app-pods
+          cache-name: ${{ env.app_identifier }}-pods
         with:
           path: ${{ env.test_app_path }}/ios/Pods
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles(format('{0}/ios/Podfile.lock', env.test_app_path)) }}
@@ -177,7 +180,7 @@ jobs:
         uses: actions/cache/save@v4
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         with:
-          key: ios-test-dev-container-app-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
+          key: ${{ env.app_identifier }}-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
           path: |
             ${{ env.test_app_path }}/build-hash.txt
 
@@ -186,10 +189,10 @@ jobs:
         id: check-previous-build
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         with:
-          key: ios-test-dev-container-app-${{ steps.caculate-build-hash.outputs.build_hash }}
+          key: ${{ env.app_identifier }}-${{ steps.caculate-build-hash.outputs.build_hash }}
           lookup-only: true
           path: |
-            ${{ env.test_app_path }}/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
+            ${{ env.test_app_path }}/build/Build/Products/${{ env.built_product_path }}
 
       # - name: Prepare code signing storage Git SSH private key
       #   env:
@@ -280,7 +283,7 @@ jobs:
         with:
           key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
           path: |
-            ${{ env.test_app_path }}/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
+            ${{ env.test_app_path }}/build/Build/Products/${{ env.built_product_path }}
 
       # - name: Upload Build
       #   # if: steps.cache-primes-restore.outputs.cache-hit != 'true'
