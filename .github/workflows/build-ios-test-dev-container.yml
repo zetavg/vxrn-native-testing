@@ -46,6 +46,7 @@ jobs:
     timeout-minutes: 60
     outputs:
       build-hash: ${{ steps.caculate-build-hash.outputs.build_hash }}
+      built-app-cache-key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
       # build-number: ${{ steps.update-build-number.outputs.build_number }}
       # archive-artifact-id: ${{ steps.upload-archive.outputs.artifact-id }}
       # archive-artifact-url: ${{ steps.upload-archive.outputs.artifact-url }}
@@ -63,6 +64,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      # - name: Caculate Pre-Build Hash
+      #   id: caculate-pre-build-hash
+      #   env:
+      #     # We need to list all files that will affect native code in hashFiles.
+      #     PRE_BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'tests/test/ios/OneTestApp.xcodeproj/project.pbxproj') }}
+      #   run: |
+      #     if [ -z "$PRE_BUILD_HASH" ]; then
+      #       echo '[ERROR] Failed to calculate build hash.'
+      #       exit 1
+      #     fi
+      #     echo "Pre-build hash: $PRE_BUILD_HASH"
+      #     echo "pre_build_hash=$PRE_BUILD_HASH" >> $GITHUB_OUTPUT
 
       - name: Install
         uses: ./.github/actions/install
@@ -97,7 +111,7 @@ jobs:
         id: caculate-build-hash
         env:
           # We need to list all files that will affect native code in hashFiles.
-          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'tests/test/ios/OneTestApp.xcodeproj/project.pbxproj') }}
+          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'packages/vxrn/expo-plugin.cjs') }}
         run: |
           if [ -z "$BUILD_HASH" ]; then
             echo '[ERROR] Failed to calculate build hash.'
