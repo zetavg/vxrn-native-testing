@@ -65,25 +65,60 @@ jobs:
         with:
           fetch-depth: 1
 
-      # - name: Caculate Pre-Build Hash
-      #   id: caculate-pre-build-hash
-      #   env:
-      #     # We need to list all files that will affect native code in hashFiles.
-      #     PRE_BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'tests/test/ios/OneTestApp.xcodeproj/project.pbxproj') }}
-      #   run: |
-      #     if [ -z "$PRE_BUILD_HASH" ]; then
-      #       echo '[ERROR] Failed to calculate build hash.'
-      #       exit 1
-      #     fi
-      #     echo "Pre-build hash: $PRE_BUILD_HASH"
-      #     echo "pre_build_hash=$PRE_BUILD_HASH" >> $GITHUB_OUTPUT
+      - name: Caculate Pre-Build Hash
+        id: caculate-pre-build-hash
+        env:
+          # A hash that can save us more time if we can already know that the build hash will not change.
+          #
+          # Calculating the build_hash relies on generated files, for example, `Podfile.lock`, and it’ll take some time to run `yarn install`, `expo prebuild` and `pod install` in order to get that. But if `yarn.lock` didn’t change, there’s no likely that `Podfile.lock` will change - we can leverage that and skip some installation steps.
+          #
+          # This hash MUST be different if the build_hash will be different.
+          #
+          # This hash can be different if the build_hash remains the same. For example, if `yarn.lock` changes, `Podfile.lock` may not change if the updated package contains no native code.
+          PRE_BUILD_HASH: ${{ hashFiles('tests/test/yarn.lock', 'tests/test/app.json', 'packages/vxrn/expo-plugin.cjs') }}
+        run: |
+          if [ -z "$PRE_BUILD_HASH" ]; then
+            echo '[ERROR] Failed to calculate pre-build hash.'
+          fi
+          echo "Pre-build hash: $PRE_BUILD_HASH"
+          echo "pre_build_hash=$PRE_BUILD_HASH" >> $GITHUB_OUTPUT
+
+      - name: Check Pre-Build Hash
+        uses: actions/cache/restore@v4
+        id: check-pre-build-hash
+        with:
+          key: ios-test-dev-container-app-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
+          path: |
+            tests/test/build-hash.txt
+
+      - name: Read Build Hash from Cache
+        id: read-build-hash
+        run: |
+          if [ -f build-hash.txt ]; then
+            BUILD_HASH=$(tr -d '[:space:]' < build-hash.txt)
+            echo "Build hash: $BUILD_HASH"
+            echo "build_hash=$BUILD_HASH" >> $GITHUB_OUTPUT
+          else
+            echo 'No cached build hash found.'
+          fi
+
+      - name: Check Previous Build with Cached Build Hash
+        uses: actions/cache/restore@v4
+        id: pre-check-previous-build
+        with:
+          key: ios-test-dev-container-app-${{ steps.read-build-hash.outputs.build_hash }}
+          lookup-only: true
+          path: |
+            tests/test/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
 
       - name: Install
         uses: ./.github/actions/install
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         with:
           workspace-focus: test-app
 
       - name: Prebuild
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         run: |
           node_modules/.bin/expo prebuild --platform ios --no-install # --no-install is used to skip installing dependencies, specifically `pod install` as we want to do it after the Cache Pods step
 
@@ -94,6 +129,7 @@ jobs:
 
       - name: Cache Pods
         uses: actions/cache@v4
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         env:
           cache-name: test-app-pods
         with:
@@ -104,11 +140,13 @@ jobs:
             ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Pod Install
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         run: |
           cd ios && pod install
 
       - name: Caculate Build Hash
         id: caculate-build-hash
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         env:
           # We need to list all files that will affect native code in hashFiles.
           BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'tests/test/app.json', 'packages/vxrn/expo-plugin.cjs') }}
@@ -126,9 +164,25 @@ jobs:
       #   run: |
       #     gh cache list
 
+      - name: Write Build Hash
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
+        env:
+          BUILD_HASH: ${{ steps.caculate-build-hash.outputs.build_hash }}
+        run: |
+          echo $BUILD_HASH > build-hash.txt
+
+      - name: Save Pre-Build Hash Mapping
+        uses: actions/cache/save@v4
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
+        with:
+          key: ios-test-dev-container-app-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
+          path: |
+            tests/test/build-hash.txt
+
       - name: Check Previous Build
         uses: actions/cache/restore@v4
         id: check-previous-build
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         with:
           key: ios-test-dev-container-app-${{ steps.caculate-build-hash.outputs.build_hash }}
           lookup-only: true
@@ -176,7 +230,7 @@ jobs:
       - name: Restore Build Cache
         id: restore-build-cache
         uses: actions/cache/restore@v4
-        if: ${{ !steps.check-previous-build.outputs.cache-hit }}
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
         env:
           cache-name: ios-test-dev-container-build
         with:
@@ -186,7 +240,7 @@ jobs:
             tests/test/build
 
       - name: Build
-        if: ${{ !steps.check-previous-build.outputs.cache-hit }}
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
         run: |
           xcrun xcodebuild -scheme 'OneTestApp' \
             -workspace 'ios/OneTestApp.xcworkspace' \
@@ -198,7 +252,7 @@ jobs:
 
       - name: Upload Build Log
         uses: actions/upload-artifact@v4.3.1
-        if:  ${{ always() && !steps.check-previous-build.outputs.cache-hit }}
+        if:  ${{ always() && !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
         with:
           name: xcodebuild.log
           path: |
@@ -212,7 +266,7 @@ jobs:
 
       - name: Save Build Cache
         uses: actions/cache/save@v4
-        if:  ${{ always() && !steps.check-previous-build.outputs.cache-hit }}
+        if:  ${{ always() && !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
         with:
           key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
           path: |
@@ -220,7 +274,7 @@ jobs:
 
       - name: Save Built App
         uses: actions/cache/save@v4
-        if: ${{ !steps.check-previous-build.outputs.cache-hit }}
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
         with:
           key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
           path: |
