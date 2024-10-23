@@ -106,11 +106,20 @@ jobs:
           echo "Build hash: $BUILD_HASH"
           echo "build_hash=$BUILD_HASH" >> $GITHUB_OUTPUT
 
-      - name: Check Previous Builds
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh cache list
+      # - name: Check Previous Builds
+      #   env:
+      #     GH_TOKEN: ${{ github.token }}
+      #   run: |
+      #     gh cache list
+
+      - name: Check Previous Build
+        uses: actions/cache/restore@v4
+        id: check-previous-build
+        with:
+          key: ios-test-dev-container-app-${{ steps.caculate-build-hash.outputs.build_hash }}
+          lookup-only: true
+          path: |
+            tests/test/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
 
       # - name: Prepare code signing storage Git SSH private key
       #   env:
@@ -153,6 +162,7 @@ jobs:
       - name: Restore Build Cache
         id: restore-build-cache
         uses: actions/cache/restore@v4
+        if: ${{ !steps.check-previous-build.outputs.cache-hit }}
         env:
           cache-name: ios-test-dev-container-build
         with:
@@ -162,6 +172,7 @@ jobs:
             tests/test/build
 
       - name: Build
+        if: ${{ !steps.check-previous-build.outputs.cache-hit }}
         run: |
           xcrun xcodebuild -scheme 'OneTestApp' \
             -workspace 'ios/OneTestApp.xcworkspace' \
@@ -172,8 +183,8 @@ jobs:
             build | tee xcodebuild.log | xcpretty
 
       - name: Upload Build Log
-        if: always()
         uses: actions/upload-artifact@v4.3.1
+        if:  ${{ always() && !steps.check-previous-build.outputs.cache-hit }}
         with:
           name: xcodebuild.log
           path: |
@@ -186,8 +197,8 @@ jobs:
       #       tests/test/build
 
       - name: Save Build Cache
-        if: always()
         uses: actions/cache/save@v4
+        if:  ${{ always() && !steps.check-previous-build.outputs.cache-hit }}
         with:
           key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
           path: |
@@ -195,8 +206,9 @@ jobs:
 
       - name: Save Built App
         uses: actions/cache/save@v4
+        if: ${{ !steps.check-previous-build.outputs.cache-hit }}
         with:
-          key: ios-test-dev-container-app-${{ steps.caculate-build-hash.outputs.build_hash }}
+          key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
           path: |
             tests/test/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
 
