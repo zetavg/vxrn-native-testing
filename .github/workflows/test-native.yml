@@ -40,15 +40,15 @@ jobs:
       - name: Get Simulator UDID
         id: get-simulator-udid
         run: |
-          SIMULATOR_INFO=$(xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-17-5" | map(select(.name | test("iPhone"))) | last')
+          AVAILABLE_SIMULATORS=$(xcrun simctl list devices available --json)
+          echo "Available simulators: $AVAILABLE_SIMULATORS"
+          RUNTIME=$(echo $AVAILABLE_SIMULATORS | jq -r '.devices | keys | map(select(test("iOS"))) | last')
+          echo "Runtime: $RUNTIME"
+          SIMULATOR_INFO=$(echo $AVAILABLE_SIMULATORS | jq ".devices.\"$RUNTIME\" | map(select(.name | test(\"iPhone\"))) | last")
           SIMULATOR_UDID=$(echo $SIMULATOR_INFO | jq -r .udid)
           echo "Simulator info: $SIMULATOR_INFO"
-          echo "Simulator UDID: $BUILD_HASH"
+          echo "Simulator UDID: $SIMULATOR_UDID"
           echo "simulator_udid=$SIMULATOR_UDID" >> $GITHUB_OUTPUT
-      - name: Boot Simulator
-        env:
-          SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
-        run: xcrun simctl boot $SIMULATOR_UDID
       - name: Boot Simulator
         env:
           SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
