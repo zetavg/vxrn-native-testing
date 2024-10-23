@@ -1,4 +1,6 @@
 name: Build iOS Test Development Container App
+env:
+  test_app_path: tests/test
 on:
   workflow_call:
     outputs:
@@ -58,7 +60,7 @@ jobs:
       # install-url: ${{ steps.upload-to-appsend.outputs.install_url }}
     defaults:
       run:
-        working-directory: tests/test
+        working-directory: ${{ env.test_app_path }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -75,7 +77,7 @@ jobs:
           # This hash MUST be different if the build_hash will be different.
           #
           # This hash can be different if the build_hash remains the same. For example, if `yarn.lock` changes, `Podfile.lock` may not change if the updated package contains no native code.
-          PRE_BUILD_HASH: ${{ hashFiles('tests/test/yarn.lock', 'tests/test/app.json', 'packages/vxrn/expo-plugin.cjs') }}
+          PRE_BUILD_HASH: ${{ hashFiles(format('{0}/yarn.lock', env.test_app_path), format('{0}/app.json', env.test_app_path), 'packages/vxrn/expo-plugin.cjs') }}
         run: |
           if [ -z "$PRE_BUILD_HASH" ]; then
             echo '[ERROR] Failed to calculate pre-build hash.'
@@ -89,7 +91,7 @@ jobs:
         with:
           key: ios-test-dev-container-app-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
           path: |
-            tests/test/build-hash.txt
+            ${{ env.test_app_path }}/build-hash.txt
 
       - name: Read Build Hash from Cache
         id: read-build-hash
@@ -110,7 +112,7 @@ jobs:
           key: ios-test-dev-container-app-${{ steps.read-build-hash.outputs.build_hash }}
           lookup-only: true
           path: |
-            tests/test/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
+            ${{ env.test_app_path }}/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
 
       - name: Install
         uses: ./.github/actions/install
@@ -134,10 +136,9 @@ jobs:
         env:
           cache-name: test-app-pods
         with:
-          path: tests/test/ios/Pods
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('tests/test/ios/Podfile.lock') }}-${{ hashFiles('yarn.lock') }}
+          path: ${{ env.test_app_path }}/ios/Pods
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles(format('{0}/ios/Podfile.lock', env.test_app_path)) }}
           restore-keys: |
-            ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('tests/test/ios/Podfile') }}-
             ${{ runner.os }}-${{ env.cache-name }}-
 
       - name: Pod Install
@@ -150,7 +151,7 @@ jobs:
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         env:
           # We need to list all files that will affect native code in hashFiles.
-          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'tests/test/app.json', 'packages/vxrn/expo-plugin.cjs') }}
+          BUILD_HASH: ${{ hashFiles(format('{0}/ios/Podfile.lock', env.test_app_path), format('{0}/app.json', env.test_app_path), 'packages/vxrn/expo-plugin.cjs') }}
         run: |
           if [ -z "$BUILD_HASH" ]; then
             echo '[ERROR] Failed to calculate build hash.'
@@ -178,7 +179,7 @@ jobs:
         with:
           key: ios-test-dev-container-app-pre-build-hash-to-hash-mapping-${{ steps.caculate-pre-build-hash.outputs.pre_build_hash }}
           path: |
-            tests/test/build-hash.txt
+            ${{ env.test_app_path }}/build-hash.txt
 
       - name: Check Previous Build
         uses: actions/cache/restore@v4
@@ -188,7 +189,7 @@ jobs:
           key: ios-test-dev-container-app-${{ steps.caculate-build-hash.outputs.build_hash }}
           lookup-only: true
           path: |
-            tests/test/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
+            ${{ env.test_app_path }}/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
 
       # - name: Prepare code signing storage Git SSH private key
       #   env:
@@ -238,7 +239,7 @@ jobs:
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ steps.caculate-build-hash.outputs.build_hash }}
           restore-keys: ${{ runner.os }}-${{ env.cache-name }}-
           path: |
-            tests/test/build
+            ${{ env.test_app_path }}/build
 
       - name: Build
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
@@ -257,13 +258,13 @@ jobs:
         with:
           name: xcodebuild.log
           path: |
-            tests/test/xcodebuild.log
+            ${{ env.test_app_path }}/xcodebuild.log
 
       # - name: Upload Build
       #   uses: actions/upload-artifact@v4.3.1
       #   with:
       #     path: |
-      #       tests/test/build
+      #       ${{ env.test_app_path }}/build
 
       - name: Save Build Cache
         uses: actions/cache/save@v4
@@ -271,7 +272,7 @@ jobs:
         with:
           key: ${{ steps.restore-build-cache.outputs.cache-primary-key }}
           path: |
-            tests/test/build
+            ${{ env.test_app_path }}/build
 
       - name: Save Built App
         uses: actions/cache/save@v4
@@ -279,7 +280,7 @@ jobs:
         with:
           key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
           path: |
-            tests/test/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
+            ${{ env.test_app_path }}/build/Build/Products/Debug-iphonesimulator/OneTestApp.app
 
       # - name: Upload Build
       #   # if: steps.cache-primes-restore.outputs.cache-hit != 'true'
@@ -289,7 +290,7 @@ jobs:
       #   with:
       #     key: ${{ runner.os }}-${{ env.cache-name }}-${{ steps.caculate-build-hash.outputs.build_hash }}
       #     path: |
-      #       tests/test/build
+      #       ${{ env.test_app_path }}/build
 
       # - name: ccache
       #   uses: hendrikmuhs/ccache-action@v1.2
@@ -353,7 +354,7 @@ jobs:
       #   with:
       #     name: ${{ steps.get-archive-artifact-name.outputs.archive_artifact_name }}
       #     path: |
-      #       tests/test/*.xcarchive
+      #       ${{ env.test_app_path }}/*.xcarchive
 
       # - name: Get IPA Artifact name
       #   id: get-ipa-artifact-name
@@ -368,7 +369,7 @@ jobs:
       #   with:
       #     name: ${{ steps.get-ipa-artifact-name.outputs.ipa_artifact_name }}
       #     path: |
-      #       tests/test/*.ipa
+      #       ${{ env.test_app_path }}/*.ipa
 
       # - name: Upload to AppSend
       #   id: upload-to-appsend
