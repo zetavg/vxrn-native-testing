@@ -111,7 +111,7 @@ jobs:
         id: caculate-build-hash
         env:
           # We need to list all files that will affect native code in hashFiles.
-          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'packages/vxrn/expo-plugin.cjs') }}
+          BUILD_HASH: ${{ hashFiles('tests/test/ios/Podfile.lock', 'tests/test/app.json', 'packages/vxrn/expo-plugin.cjs') }}
         run: |
           if [ -z "$BUILD_HASH" ]; then
             echo '[ERROR] Failed to calculate build hash.'
