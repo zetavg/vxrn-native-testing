@@ -100,6 +100,7 @@ jobs:
             echo "build_hash=$BUILD_HASH" >> $GITHUB_OUTPUT
           else
             echo 'No cached build hash found.'
+            echo "build_hash=NULL" >> $GITHUB_OUTPUT
           fi
 
       - name: Check Previous Build with Cached Build Hash
