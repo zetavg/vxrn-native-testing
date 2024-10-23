@@ -37,6 +37,28 @@ jobs:
       - name: Hello World 2
         run: ls -al ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
 
+      - name: Get Simulator UDID
+        id: get-simulator-udid
+        run: |
+          SIMULATOR_INFO=$(xcrun simctl list devices available --json | jq '.devices."com.apple.CoreSimulator.SimRuntime.iOS-17-5" | map(select(.name | test("iPhone"))) | last')
+          SIMULATOR_UDID=$(echo $SIMULATOR_INFO | jq -r .udid)
+          echo "Simulator info: $SIMULATOR_INFO"
+          echo "Simulator UDID: $BUILD_HASH"
+          echo "simulator_udid=$SIMULATOR_UDID" >> $GITHUB_OUTPUT
+      - name: Boot Simulator
+        env:
+          SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
+        run: xcrun simctl boot $SIMULATOR_UDID
+      - name: Boot Simulator
+        env:
+          SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
+        run: xcrun simctl boot $SIMULATOR_UDID
+      - name: Install Dev Container App in Simulator
+        env:
+          SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
+          APP_PATH: ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
+        working-directory: .
+        run: xcrun simctl install $SIMULATOR_UDID $APP_PATH
       # - name: Install
       #   uses: ./.github/actions/install
 
