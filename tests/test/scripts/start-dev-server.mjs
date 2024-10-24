@@ -1,8 +1,8 @@
-import { spawn } from 'child_process'
-import http from 'http'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import { spawn } from 'node:child_process'
+import http from 'node:http'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -30,7 +30,7 @@ function checkServer() {
 }
 
 // Function to wait for the server to be up
-async function waitForServer() {
+async function waitForServer(serverProcess) {
   const maxRetries = 100
   const delay = 1000 // 1 second
   let retries = 0
@@ -45,18 +45,30 @@ async function waitForServer() {
     } catch {
       // Ignore errors and retry
     }
+
+    // If the child process has exited, stop waiting
+    if (serverProcess.exitCode !== null) {
+      break
+    }
+
     console.info(`Waiting for server... (${retries + 1}/${maxRetries})`)
     await new Promise((resolve) => setTimeout(resolve, delay))
     retries++
   }
 
-  let lastFewLinesOfServerLog = ''
+  let lastFewLinesOfServerLog = null
   try {
-    lastFewLinesOfServerLog = fs.readFileSync(LOG_FILE, 'utf8').split('\n').slice(-10).join('\n')
+    lastFewLinesOfServerLog = fs.readFileSync(LOG_FILE, 'utf8').split('\n').slice(-50).join('\n')
   } catch {}
 
   throw new Error(
-    `Server did not start within the expected time.${lastFewLinesOfServerLog ? `\nLast few lines of server log:\n--------\n${lastFewLinesOfServerLog}\n--------\n` : ''}`
+    (serverProcess.exitCode !== null
+      ? 'Server process crashed or exited unexpectedly.'
+      : 'Server did not start within the expected time.') +
+      lastFewLinesOfServerLog !==
+      null
+      ? `\nLast few lines of server log:\n--------\n${lastFewLinesOfServerLog}\n--------\n`
+      : ''
   )
 }
 
@@ -91,6 +103,8 @@ function startNewServer() {
   fs.writeFileSync(PID_FILE, String(child.pid))
   console.info(`Started new server with PID: ${child.pid}`)
   child.unref() // Allows the parent process to exit independently of the child
+
+  return child
 }
 
 async function main() {
@@ -99,10 +113,10 @@ async function main() {
     killExistingServer()
 
     // Start a new server
-    startNewServer()
+    const serverProcess = startNewServer()
 
     // Wait for the server to be up
-    await waitForServer()
+    await waitForServer(serverProcess)
 
     console.info('Server listening on port', SERVER_PORT)
     console.info('Exiting script while the server keeps running.')
