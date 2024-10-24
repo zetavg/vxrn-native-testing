@@ -73,7 +73,9 @@ jobs:
         run: xcrun simctl install $SIMULATOR_UDID $APP_PATH
 
       - name: Test
-        run: maestro test maestro-flows/flow.yaml
+        run: |
+          export PATH="$PATH":"$HOME/.maestro/bin"
+          maestro test maestro-flows/flow.yaml
 
       - name: Upload Server Log
         uses: actions/upload-artifact@v4.3.1
