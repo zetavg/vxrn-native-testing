@@ -63,7 +63,7 @@ jobs:
           export PATH="$PATH":"$HOME/.maestro/bin"
 
       - name: Start Dev Server
-        run: node scripts/start-dev-server.mjs
+        run: node scripts/start-dev-server.mjs --no-wait
 
       - name: Install Dev Container App in Simulator
         env:
@@ -71,6 +71,9 @@ jobs:
           APP_PATH: ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
         working-directory: .
         run: xcrun simctl install $SIMULATOR_UDID $APP_PATH
+
+      - name: Wait for Dev Server to Be Ready
+        run: node scripts/start-dev-server.mjs --check-only
 
       - name: Test
         run: |
