@@ -101,6 +101,7 @@ function startNewServer() {
     path.join(PROJECT_ROOT, 'node_modules', '.bin', 'one'),
     ['dev', '--port', SERVER_PORT],
     {
+      cwd: PROJECT_ROOT,
       stdio: ['ignore', out, err], // Redirect output to server.log
       detached: true, // Detaches the process from the parent
     }
