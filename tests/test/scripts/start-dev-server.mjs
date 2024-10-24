@@ -30,10 +30,11 @@ function checkServer() {
 }
 
 // Function to wait for the server to be up
-async function waitForServer(serverProcess) {
+async function waitForServer(pid) {
   const maxRetries = 100
   const delay = 1000 // 1 second
   let retries = 0
+  let isProcessExited = false
 
   while (retries < maxRetries) {
     try {
@@ -47,7 +48,8 @@ async function waitForServer(serverProcess) {
     }
 
     // If the child process has exited, stop waiting
-    if (serverProcess.exitCode !== null) {
+    if (!isProcessRunning(pid)) {
+      isProcessExited = true
       break
     }
 
@@ -62,13 +64,16 @@ async function waitForServer(serverProcess) {
   } catch {}
 
   throw new Error(
-    (serverProcess.exitCode !== null
-      ? 'Server process crashed or exited unexpectedly.'
-      : 'Server did not start within the expected time.') +
-      lastFewLinesOfServerLog !==
-      null
-      ? `\nLast few lines of server log:\n--------\n${lastFewLinesOfServerLog}\n--------\n`
-      : ''
+    [
+      isProcessExited
+        ? 'Server process crashed or exited unexpectedly.'
+        : 'Server did not start within the expected time.',
+      lastFewLinesOfServerLog !== null
+        ? `Last few lines of server log:\n--------\n${lastFewLinesOfServerLog}\n--------\n`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n')
   )
 }
 
@@ -107,19 +112,58 @@ function startNewServer() {
   return child
 }
 
+function isProcessRunning(pid) {
+  try {
+    // Sending signal 0 does not kill the process, it's just a way to check if it exists
+    process.kill(pid, 0)
+    return true // Process exists
+  } catch (error) {
+    if (error.code === 'ESRCH') {
+      return false // Process does not exist
+    }
+
+    if (error.code === 'EPERM') {
+      // Permission error but process exists
+      return true
+    }
+
+    throw error // Re-throw other errors
+  }
+}
+
 async function main() {
   try {
-    // Kill any existing server
-    killExistingServer()
+    /** Only start or restart the server but do not wait for it to be up. */
+    const noWait = process.argv.includes('--no-wait')
+    /** Do not try to start or restart the server, only check and wait for the server to be up. */
+    const checkOnly = process.argv.includes('--check-only')
 
-    // Start a new server
-    const serverProcess = startNewServer()
+    let serverProcessPid = null
+    if (checkOnly) {
+      try {
+        serverProcessPid = fs.readFileSync(PID_FILE, 'utf8')
+      } catch {}
+    } else {
+      // Kill any existing server
+      killExistingServer()
 
-    // Wait for the server to be up
-    await waitForServer(serverProcess)
+      // Start a new server
+      const serverProcess = startNewServer()
 
-    console.info('Server listening on port', SERVER_PORT)
-    console.info('Exiting script while the server keeps running.')
+      serverProcessPid = serverProcess.pid
+    }
+
+    if (!noWait) {
+      if (!serverProcessPid) {
+        throw new Error(
+          `Server process PID not found. Did the server start successfully? You might want to check if the PID file ${PID_FILE} exists.`
+        )
+      }
+      // Wait for the server to be up
+      await waitForServer(serverProcessPid)
+    }
+
+    console.info('Exiting script while keeping the server running in the background.')
   } catch (error) {
     console.error('Error:', error)
     process.exit(1)
