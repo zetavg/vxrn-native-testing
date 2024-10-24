@@ -1,6 +1,7 @@
 name: Build iOS Test Development Container App
 env:
   test_app_path: tests/test
+  test_app_package_name: test-app
   # Used for cache keys, must be unique among all workflows
   app_identifier: ios-test-dev-container-app
   built_product_path: Debug-iphonesimulator/OneTestApp.app
@@ -128,7 +129,7 @@ jobs:
         uses: ./.github/actions/install
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
         with:
-          workspace-focus: test-app
+          workspace-focus: ${{ env.test_app_package_name }}
 
       - name: Prebuild
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit }}
