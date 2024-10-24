@@ -1,4 +1,6 @@
 name: Native Integration Tests
+env:
+  test_app_path: tests/test
 
 on:
   push:
@@ -18,14 +20,17 @@ jobs:
     needs:
       - build-ios-test-dev-container
     runs-on: macos-13
+    defaults:
+      run:
+        working-directory: ${{ env.test_app_path }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Hello World
-        env:
-          BUILD_HASH: ${{ needs.build-ios-test-dev-container.outputs.build-hash }}
-        run: echo "Build hash is $BUILD_HASH"
+      - name: Install
+        uses: ./.github/actions/install
+        with:
+          workspace-focus: test-app
 
       - name: Download Dev Container App
         uses: actions/cache/restore@v4
@@ -33,9 +38,6 @@ jobs:
           fail-on-cache-miss: true
           key: ${{ needs.build-ios-test-dev-container.outputs.built-app-cache-key }}
           path: ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
-
-      - name: Hello World 2
-        run: ls -al ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
 
       - name: Get Simulator UDID
         id: get-simulator-udid
@@ -49,16 +51,44 @@ jobs:
           echo "Simulator info: $SIMULATOR_INFO"
           echo "Simulator UDID: $SIMULATOR_UDID"
           echo "simulator_udid=$SIMULATOR_UDID" >> $GITHUB_OUTPUT
+
       - name: Boot Simulator
         env:
           SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
         run: xcrun simctl boot $SIMULATOR_UDID
+
+      - name: Install Maestro
+        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+
+      - name: Start Dev Server
+        run: node scripts/start-dev-server.mjs
+
       - name: Install Dev Container App in Simulator
         env:
           SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
           APP_PATH: ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
         working-directory: .
         run: xcrun simctl install $SIMULATOR_UDID $APP_PATH
-      # - name: Install
-      #   uses: ./.github/actions/install
 
+      - name: Test
+        run: maestro test maestro-flows/flow.yaml
+
+      - name: Upload Server Log
+        uses: actions/upload-artifact@v4.3.1
+        if: ${{ always() }}
+        with:
+          name: dev-server.log
+          path: |
+            ${{ env.test_app_path }}/dev-server.log
+
+      - name: Prepare Maestro Logs
+        if: ${{ always() }}
+        run: cp -r "$HOME/.maestro/tests" maestro-logs
+
+      - name: Upload Maestro Logs
+        uses: actions/upload-artifact@v4.3.1
+        if: ${{ always() }}
+        with:
+          name: maestro-logs
+          path: |
+            ${{ env.test_app_path }}/maestro-logs

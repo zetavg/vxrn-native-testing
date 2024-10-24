@@ -1,0 +1,8 @@
+# flow.yaml
+
+appId: dev.onestack.dev.test
+---
+- launchApp
+- assertVisible: ".*Welcome to.*"
+- takeScreenshot:
+    path: test-screenshot

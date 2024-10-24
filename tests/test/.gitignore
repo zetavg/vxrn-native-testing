@@ -35,3 +35,9 @@ tsconfig.tsbuildinfo
 /build
 /ios
 /android
+
+# testing
+/xcodebuild.log
+/dev-server.pid
+/dev-server.log
+/maestro-screenshots
