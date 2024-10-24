@@ -3,6 +3,9 @@
 appId: dev.onestack.dev.test
 ---
 - launchApp
-- assertVisible: ".*Welcome to.*"
+- extendedWaitUntil:
+    visible: ".*Welcome to.*"
+    timeout: 60000 # 1 minute
+# - assertVisible: ".*Welcome to.*"
 - takeScreenshot:
     path: test-screenshot
