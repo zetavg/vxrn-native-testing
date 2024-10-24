@@ -86,6 +86,10 @@ jobs:
           export MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 # 3 minutes
           maestro test maestro-flows/flow.yaml
 
+      - name: Setup upterm session
+        if: ${{ always() }}
+        uses: lhotari/action-upterm@v1
+
       - name: Upload Server Log
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
