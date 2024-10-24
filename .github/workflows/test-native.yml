@@ -32,6 +32,9 @@ jobs:
         with:
           workspace-focus: test-app
 
+      - name: Start Dev Server
+        run: node scripts/start-dev-server.mjs --no-wait
+
       - name: Download Dev Container App
         uses: actions/cache/restore@v4
         with:
@@ -62,8 +65,13 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           export PATH="$PATH":"$HOME/.maestro/bin"
 
-      - name: Start Dev Server
-        run: node scripts/start-dev-server.mjs --no-wait
+      - name: Wait for Dev Server to Be Ready
+        run: node scripts/start-dev-server.mjs --check-only
+
+      - name: Get a Copy of the Bundle
+        run: |
+          echo 'Fetching the React Native bundle in the background, since the first request can take a while pre-bundling dependencies and producing the first bundle without a cache. The bundle we got can also serve as troubleshooting material in case of a failure, and will be uploaded as an artifact.'
+          wget -O bundle.ios.js 'http://localhost:8081/index.bundle?platform.ios' &
 
       - name: Install Dev Container App in Simulator
         env:
@@ -71,9 +79,6 @@ jobs:
           APP_PATH: ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
         working-directory: .
         run: xcrun simctl install $SIMULATOR_UDID $APP_PATH
-
-      - name: Wait for Dev Server to Be Ready
-        run: node scripts/start-dev-server.mjs --check-only
 
       - name: Test
         run: |
@@ -100,3 +105,11 @@ jobs:
           name: maestro-logs
           path: |
             ${{ env.test_app_path }}/maestro-logs
+
+      - name: Upload Reference React Native Bundle
+        uses: actions/upload-artifact@v4.3.1
+        if: ${{ always() }}
+        with:
+          name: bundle.ios.js
+          path: |
+            ${{ env.test_app_path }}/bundle.ios.js
