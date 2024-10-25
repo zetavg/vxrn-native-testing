@@ -101,18 +101,16 @@ jobs:
         uses: actions/upload-artifact@v4.3.1
         # Only upload if the test failed to save space
         if: ${{ failure() }}
+        continue-on-error: true
         with:
           name: dev-container-app
           path: |
             path: ${{ needs.build-ios-test-dev-container.outputs.built-app-path }}
 
-      # - name: Setup upterm session
-      #   if: ${{ always() }}
-      #   uses: lhotari/action-upterm@v1
-
       - name: Upload Server Log
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
+        continue-on-error: true
         with:
           name: dev-server.log
           path: |
@@ -120,11 +118,13 @@ jobs:
 
       - name: Prepare Maestro Logs
         if: ${{ always() }}
+        continue-on-error: true
         run: cp -r "$HOME/.maestro/tests" maestro-logs
 
       - name: Upload Maestro Logs
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
+        continue-on-error: true
         with:
           name: dev-maestro-logs
           path: |
@@ -133,6 +133,7 @@ jobs:
       - name: Upload Maestro Screenshots
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
+        continue-on-error: true
         with:
           name: dev-maestro-screenshots
           path: |
@@ -141,8 +142,9 @@ jobs:
       - name: Upload Reference React Native Bundle
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
+        continue-on-error: true
         with:
-          name: bundle.ios.js
+          name: dev-sample-bundle.ios.js
           path: |
             ${{ env.test_app_path }}/bundle.ios.js
 
@@ -199,6 +201,10 @@ jobs:
         run: |
           node_modules/.bin/one patch
 
+      - name: Setup upterm session
+        if: ${{ always() }}
+        uses: lhotari/action-upterm@v1
+
       - name: Bundle React Native code and images
         run: |
           mkdir test-bundle-output
@@ -226,6 +232,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.1
         # Only upload if the test failed to save space
         if: ${{ failure() }}
+        continue-on-error: true
         with:
           name: release-app
           path: |
@@ -233,11 +240,13 @@ jobs:
 
       - name: Prepare Maestro Logs
         if: ${{ always() }}
+        continue-on-error: true
         run: cp -r "$HOME/.maestro/tests" maestro-logs
 
       - name: Upload Maestro Logs
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
+        continue-on-error: true
         with:
           name: release-maestro-logs
           path: |
@@ -246,6 +255,7 @@ jobs:
       - name: Upload Maestro Screenshots
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
+        continue-on-error: true
         with:
           name: release-maestro-screenshots
           path: |
