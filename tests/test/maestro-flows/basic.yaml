@@ -8,4 +8,4 @@ appId: dev.onestack.dev.test
     timeout: 1200000 # 20 minutes
 # - assertVisible: ".*Welcome to.*"
 - takeScreenshot:
-    path: maestro-screenshots/test-screenshot
+    path: maestro-screenshots/app-startup
