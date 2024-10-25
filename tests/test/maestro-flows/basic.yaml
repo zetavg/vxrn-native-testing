@@ -6,6 +6,9 @@ appId: dev.onestack.dev.test
 - extendedWaitUntil:
     visible: ".*Welcome to.*"
     timeout: 1200000 # 20 minutes
+- extendedWaitUntil:
+    visible: ".*Hello World.*"
+    timeout: 1200000 # 20 minutes
 # - assertVisible: ".*Welcome to.*"
 - takeScreenshot:
     path: maestro-screenshots/app-startup
