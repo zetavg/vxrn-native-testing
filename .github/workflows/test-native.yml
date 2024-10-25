@@ -29,7 +29,8 @@ jobs:
     with:
       configuration: Release
 
-  test-ios-maestro:
+  test-ios-native:
+    name: iOS Development Integration Test
     needs:
       - build-ios-test-dev-container
     runs-on: macos-14
@@ -151,6 +152,7 @@ jobs:
             ${{ env.test_app_path }}/bundle.ios.js
 
   test-ios-native-release:
+    name: iOS Release Integration Test
     # Note: Some parts of the native build process are not covered by this test:
     # * We do not test the generated Xcode project has the Build Phase "Bundle React Native code and images" setup correctly using the standard `react-native bundle` command. This is done by the "vxrn/expo-plugin" Expo plugin which users should include in their `app.json` configuration. If that didn't work properally, Expo prebuild may setup the Xcode project to use Expo's custom bundle command that uses Metro.
     # * We do not test `react-native/scripts/react-native-xcode.sh`, instead we copy parts of it into our test scripts, simulating parts of the build process without running the whole native build.
