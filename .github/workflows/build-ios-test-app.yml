@@ -177,10 +177,12 @@ jobs:
         uses: actions/cache/restore@v4
         if: ${{ !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
         env:
-          cache-name: ${{ env.app_identifier }}-${{ inputs.configuration }}-build
+          cache-name: ${{ env.app_identifier }}-build
         with:
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ steps.caculate-build-hash.outputs.build_hash }}
-          restore-keys: ${{ runner.os }}-${{ env.cache-name }}-
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ inputs.configuration }}-${{ steps.caculate-build-hash.outputs.build_hash }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-${{ inputs.configuration }}-
+            ${{ runner.os }}-${{ env.cache-name }}-
           path: |
             ${{ env.test_app_path }}/build
 
