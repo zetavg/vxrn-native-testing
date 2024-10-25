@@ -191,7 +191,7 @@ jobs:
         run: |
           xcrun xcodebuild -scheme '${{ env.app_name }}' \
             -workspace 'ios/${{ env.app_name }}.xcworkspace' \
-            -configuration Debug \
+            -configuration ${{ inputs.configuration }} \
             -sdk 'iphonesimulator' \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath \
