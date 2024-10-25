@@ -75,9 +75,7 @@ jobs:
         run: xcrun simctl boot $SIMULATOR_UDID
 
       - name: Install Maestro
-        run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
-          export PATH="$PATH":"$HOME/.maestro/bin"
+        uses: ./.github/actions/install-maestro
 
       - name: Wait for Dev Server to Be Ready
         run: node scripts/start-dev-server.mjs --check-only
@@ -197,9 +195,7 @@ jobs:
         run: xcrun simctl boot $SIMULATOR_UDID
 
       - name: Install Maestro
-        run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
-          export PATH="$PATH":"$HOME/.maestro/bin"
+        uses: ./.github/actions/install-maestro
 
       - name: Patch Packages
         run: |
