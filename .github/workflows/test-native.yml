@@ -232,7 +232,7 @@ jobs:
 
       - name: Replace JS Bundle and Assets in App
         run: |
-          cp -r test-bundle-output/. ${{ needs.build-ios-test-app.outputs.built-app-path }}/
+          cp -r test-bundle-output/. ${{ github.workspace }}/${{ needs.build-ios-test-app.outputs.built-app-path }}/
 
       - name: Install App in Simulator
         env:
