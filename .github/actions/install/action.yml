@@ -35,7 +35,6 @@ runs:
         key: ${{ runner.os }}-${{ env.cache-name }}${{ inputs.workspace-focus && format('-{0}', inputs.workspace-focus) || '' }}-${{ hashFiles('yarn.lock') }}
         restore-keys: |
           ${{ runner.os }}-${{ env.cache-name }}${{ inputs.workspace-focus && format('-{0}', inputs.workspace-focus) || '' }}-
-        save-always: true
 
     - name: Install Dependencies
       shell: bash
