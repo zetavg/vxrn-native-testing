@@ -19,7 +19,7 @@ runs:
           echo "Maestro not found at $maestro_executable_path. Installing..."
 
           # Run the installation command
-          # curl -fsSL "https://get.maestro.mobile.dev" | bash
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
 
           # Increment retries
           retries=$((retries + 1))
