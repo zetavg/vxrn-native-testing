@@ -197,6 +197,13 @@ jobs:
             -derivedDataPath \
             build | tee xcodebuild.log | xcpretty
 
+      - name: Save Built App
+        uses: actions/cache/save@v4
+        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
+        with:
+          key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
+          path: ${{ steps.get-built-app-path.outputs.built_app_path }}
+
       - name: Save Build Cache
         uses: actions/cache/save@v4
         if:  ${{ always() && !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
@@ -209,13 +216,6 @@ jobs:
         uses: actions/upload-artifact@v4.3.1
         if:  ${{ always() && !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
         with:
-          name: xcodebuild.log
+          name: xcodebuild-${{ inputs.configuration }}.log
           path: |
             ${{ env.test_app_path }}/xcodebuild.log
-
-      - name: Save Built App
-        uses: actions/cache/save@v4
-        if: ${{ !steps.pre-check-previous-build.outputs.cache-hit && !steps.check-previous-build.outputs.cache-hit }}
-        with:
-          key: ${{ steps.check-previous-build.outputs.cache-primary-key }}
-          path: ${{ steps.get-built-app-path.outputs.built_app_path }}

@@ -126,7 +126,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
         with:
-          name: maestro-logs
+          name: dev-maestro-logs
           path: |
             ${{ env.test_app_path }}/maestro-logs
 
@@ -134,7 +134,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
         with:
-          name: maestro-screenshots
+          name: dev-maestro-screenshots
           path: |
             ${{ env.test_app_path }}/maestro-screenshots
 
@@ -227,7 +227,7 @@ jobs:
         # Only upload if the test failed to save space
         if: ${{ failure() }}
         with:
-          name: dev-container-app
+          name: release-app
           path: |
             path: ${{ needs.build-ios-test-app.outputs.built-app-path }}
 
@@ -239,7 +239,7 @@ jobs:
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
         with:
-          name: maestro-logs
+          name: release-maestro-logs
           path: |
             ${{ env.test_app_path }}/maestro-logs
 
@@ -247,6 +247,6 @@ jobs:
         uses: actions/upload-artifact@v4.3.1
         if: ${{ always() }}
         with:
-          name: maestro-screenshots
+          name: release-maestro-screenshots
           path: |
             ${{ env.test_app_path }}/maestro-screenshots
