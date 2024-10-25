@@ -1,6 +1,8 @@
 name: Native Integration Tests
 env:
   test_app_path: tests/test
+  # Used for cache keys, must be same as the build-ios-test-app workflow
+  app_identifier: ios-test-app
 
 on:
   push:
@@ -201,9 +203,26 @@ jobs:
         run: |
           node_modules/.bin/one patch
 
-      - name: Setup upterm session
-        if: ${{ always() }}
-        uses: lhotari/action-upterm@v1
+      # - name: Setup upterm session
+      #   if: ${{ always() }}
+      #   uses: lhotari/action-upterm@v1
+
+      # Prebuild and pod install because we need hermesc which is installed by pod install
+      - name: Prebuild
+        run: |
+          node_modules/.bin/expo prebuild --platform ios --no-install # --no-install is used to skip installing dependencies, specifically `pod install` as we want to do it after the Cache Pods step
+      - name: Cache Pods
+        uses: actions/cache@v4
+        env:
+          cache-name: ${{ env.app_identifier }}-pods
+        with:
+          path: ${{ env.test_app_path }}/ios/Pods
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles(format('{0}/ios/Podfile.lock', env.test_app_path)) }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}-
+      - name: Pod Install
+        run: |
+          cd ios && pod install
 
       - name: Bundle React Native code and images
         run: |
