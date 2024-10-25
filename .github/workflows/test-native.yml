@@ -17,7 +17,17 @@ jobs:
     with:
       configuration: Debug
 
-  test-maestro:
+  build-ios-test-app:
+    name: Build iOS Release App
+    uses: ./.github/workflows/build-ios-test-app.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      configuration: Release
+
+  test-ios-maestro:
     needs:
       - build-ios-test-dev-container
     runs-on: macos-14
@@ -135,3 +145,104 @@ jobs:
           name: bundle.ios.js
           path: |
             ${{ env.test_app_path }}/bundle.ios.js
+
+  test-ios-native-release:
+    # Note: Some parts of the native build process are not covered by this test:
+    # * We do not test the generated Xcode project has the Build Phase "Bundle React Native code and images" setup correctly using the standard `react-native bundle` command. This is done by the "vxrn/expo-plugin" Expo plugin which users should include in their `app.json` configuration. If that didn't work properally, Expo prebuild may setup the Xcode project to use Expo's custom bundle command that uses Metro.
+    # * We do not test `react-native/scripts/react-native-xcode.sh`, instead we copy parts of it into our test scripts, simulating parts of the build process without running the whole native build.
+    needs:
+      - build-ios-test-app
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ${{ env.test_app_path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install
+        uses: ./.github/actions/install
+        with:
+          workspace-focus: test-app
+
+      - name: Download Built Native App
+        uses: actions/cache/restore@v4
+        with:
+          fail-on-cache-miss: true
+          key: ${{ needs.build-ios-test-app.outputs.built-app-cache-key }}
+          path: ${{ needs.build-ios-test-app.outputs.built-app-path }}
+
+      - name: Get Simulator UDID
+        id: get-simulator-udid
+        run: |
+          AVAILABLE_SIMULATORS=$(xcrun simctl list devices available --json)
+          echo "Available simulators: $AVAILABLE_SIMULATORS"
+          RUNTIME=$(echo $AVAILABLE_SIMULATORS | jq -r '.devices | keys | map(select(test("iOS"))) | last')
+          echo "Runtime: $RUNTIME"
+          SIMULATOR_INFO=$(echo $AVAILABLE_SIMULATORS | jq ".devices.\"$RUNTIME\" | map(select(.name | test(\"iPhone\"))) | last")
+          SIMULATOR_UDID=$(echo $SIMULATOR_INFO | jq -r .udid)
+          echo "Simulator info: $SIMULATOR_INFO"
+          echo "Simulator UDID: $SIMULATOR_UDID"
+          echo "simulator_udid=$SIMULATOR_UDID" >> $GITHUB_OUTPUT
+
+      - name: Boot Simulator
+        env:
+          SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
+        run: xcrun simctl boot $SIMULATOR_UDID
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          export PATH="$PATH":"$HOME/.maestro/bin"
+
+      - name: Bundle React Native code and images
+        run: |
+          mkdir test-bundle-output
+          node_modules/.bin/react-native bundle --platform ios --dev false --bundle-output test-bundle-output/main.tmp.jsbundle --assets-dest test-bundle-output
+          ios/Pods/hermes-engine/destroot/bin/hermesc -emit-binary -max-diagnostic-width=80 -O -output-source-map -out test-bundle-output/main.jsbundle test-bundle-output/main.tmp.jsbundle
+
+      - name: Replace JS Bundle and Assets in App
+        run: |
+          cp -r test-bundle-output/. ${{ needs.build-ios-test-app.outputs.built-app-path }}/
+
+      - name: Install App in Simulator
+        env:
+          SIMULATOR_UDID: ${{ steps.get-simulator-udid.outputs.simulator_udid }}
+          APP_PATH: ${{ needs.build-ios-test-app.outputs.built-app-path }}
+        working-directory: .
+        run: xcrun simctl install $SIMULATOR_UDID $APP_PATH
+
+      - name: Test
+        run: |
+          export PATH="$PATH":"$HOME/.maestro/bin"
+          export MAESTRO_DRIVER_STARTUP_TIMEOUT=180000 # 3 minutes
+          maestro test maestro-flows/flow.yaml
+
+      - name: Upload App
+        uses: actions/upload-artifact@v4.3.1
+        # Only upload if the test failed to save space
+        if: ${{ failure() }}
+        with:
+          name: dev-container-app
+          path: |
+            path: ${{ needs.build-ios-test-app.outputs.built-app-path }}
+
+      - name: Prepare Maestro Logs
+        if: ${{ always() }}
+        run: cp -r "$HOME/.maestro/tests" maestro-logs
+
+      - name: Upload Maestro Logs
+        uses: actions/upload-artifact@v4.3.1
+        if: ${{ always() }}
+        with:
+          name: maestro-logs
+          path: |
+            ${{ env.test_app_path }}/maestro-logs
+
+      - name: Upload Maestro Screenshots
+        uses: actions/upload-artifact@v4.3.1
+        if: ${{ always() }}
+        with:
+          name: maestro-screenshots
+          path: |
+            ${{ env.test_app_path }}/maestro-screenshots
