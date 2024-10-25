@@ -195,6 +195,10 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           export PATH="$PATH":"$HOME/.maestro/bin"
 
+      - name: Patch Packages
+        run: |
+          node_modules/.bin/one patch
+
       - name: Bundle React Native code and images
         run: |
           mkdir test-bundle-output
